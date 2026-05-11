@@ -1,0 +1,19 @@
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis_broker
+    ports:
+      - "6379:6379"
+
+  tg_gateway:
+    build:
+      context: ./tg_gateway
+    container_name: tg_gateway
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    env_file:
+      - .env
+    depends_on:
+      - redis
