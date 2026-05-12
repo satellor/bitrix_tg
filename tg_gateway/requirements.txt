@@ -1,0 +1,4 @@
+aiogram
+redis
+openai-whisper
+setuptools
