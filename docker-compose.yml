@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - bot_network
+
+  gateway:
+    build: ./gateway_aiogram
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    volumes:
+      - ./gateway_aiogram:/app
+      - ./infrastructure:/infrastructure
+    restart: unless-stopped
+    networks:
+      - bot_network
+
+  ai_core:
+    build: ./ai_core
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    volumes:
+      - ./ai_core:/app
+    restart: unless-stopped
+    networks:
+      - bot_network
+
+  bitrix:
+    build: ./bitrix_connector
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    volumes:
+      - ./bitrix_connector:/app
+    restart: unless-stopped
+    networks:
+      - bot_network
+
+networks:
+  bot_network:
+    driver: bridge
