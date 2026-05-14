@@ -5,6 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 import redis.asyncio as redis
 from faster_whisper import WhisperModel
+import time
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
@@ -22,7 +23,7 @@ async def send_to_redis(user_id: int, text: str, msg_type: str, file_id: str = N
         "text": text,
         "type": msg_type,
         "file_id": file_id,
-        "timestamp": int(asyncio.get_event_loop().time())
+        "timestamp": int(time.time())
     }
     await redis_client.lpush("tg_messages", json.dumps(data))
 
@@ -49,7 +50,7 @@ async def voice_handler(msg: types.Message):
         await processing.edit_text("Ошибка распознавания")
         print(e)
     finally:
-        tmp.unlink()
+        tmp.unlink(missing_ok=True)
 
 async def main():
     print("Gateway started")

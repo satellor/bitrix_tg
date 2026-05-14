@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   redis:
@@ -9,15 +9,33 @@ services:
     restart: unless-stopped
 
   tg_gateway:
-    build:
-      context: ./tg_gateway
+    build: ./tg_gateway
     container_name: tg_gateway
-    network_mode: host
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
-    env_file:
-      - .env
+    env_file: .env
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  bridge:
+    build: ./bridge
+    container_name: tg_bridge
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  bitrix_connector:
+    build: ./bitrix_connector
+    container_name: bitrix_connector
+    env_file: .env
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
     depends_on:
       - redis
     restart: unless-stopped
