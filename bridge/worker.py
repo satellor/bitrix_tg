@@ -10,7 +10,8 @@ async def main():
     r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
     print("Bridge running: reads", IN_QUEUE, "writes", OUT_QUEUE)
     while True:
-        _, raw = await r.brpop(IN_QUEUE)
+        _, raw = await r.brpop(["tg_messages", "wa_messages"])
+        source = msg.get("source", "telegram")
         msg = json.loads(raw)
         uid = msg["user_id"]
         text = (msg.get("text") or "").strip()
@@ -19,9 +20,9 @@ async def main():
         task = {
             "user_id": uid,
             "crm_data": {
-                "title": f"Telegram {uid}",
+                "title": f"{source.capitalize()} {uid}",
                 "description": text[:8000],
-                "name": f"TG user {uid}",
+                "name": msg.get("contact_name") or f"{source} user {uid}",
             },
         }
         await r.lpush(OUT_QUEUE, json.dumps(task, ensure_ascii=False))
