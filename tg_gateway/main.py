@@ -4,7 +4,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 import redis.asyncio as redis
-from faster_whisper import WhisperModel
+import whisper  
 import time
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -15,7 +15,8 @@ WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base")
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-whisper = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+
+whisper_model = whisper.load_model(WHISPER_MODEL, device="cpu")
 
 async def send_to_redis(user_id: int, text: str, msg_type: str, file_id: str = None):
     data = {
@@ -39,8 +40,12 @@ async def voice_handler(msg: types.Message):
     tmp = Path(tempfile.gettempdir()) / f"{msg.voice.file_unique_id}.ogg"
     await bot.download_file(file.file_path, destination=str(tmp))
     try:
-        segments, _ = whisper.transcribe(str(tmp), beam_size=5)
-        text = " ".join(seg.text for seg in segments)
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None, lambda: whisper_model.transcribe(str(tmp), beam_size=5)
+        )
+        text = result.get("text", "")
+        
         if text.strip():
             await send_to_redis(msg.from_user.id, text.strip(), "voice", msg.voice.file_id)
             await processing.edit_text(f"Распознано: {text[:100]}")

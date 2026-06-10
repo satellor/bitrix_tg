@@ -3,12 +3,13 @@ import json
 import os
 import tempfile
 import time
+import asyncio
 from pathlib import Path
 
 import aiohttp
 import redis.asyncio as redis
 from fastapi import FastAPI, Request
-from faster_whisper import WhisperModel
+import whisper  
 
 WAPPI_TOKEN = os.getenv("WAPPI_TOKEN")
 WAPPI_PROFILE_ID = os.getenv("WAPPI_PROFILE_ID")
@@ -20,11 +21,11 @@ OUT_QUEUE = os.getenv("WA_MESSAGES_QUEUE", "wa_messages")
 
 app = FastAPI()
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-whisper = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+
+whisper_model = whisper.load_model(WHISPER_MODEL, device="cpu")
 
 
 def chat_to_recipient(chat_id: str) -> str:
-    """Swagger send example uses 79115576362, not 7911...@c.us"""
     return chat_id.split("@")[0]
 
 
@@ -98,8 +99,12 @@ async def wappi_webhook(request: Request):
             tmp = Path(tempfile.gettempdir()) / f"wa_{msg.get('id', 'voice')}.ogg"
             tmp.write_bytes(base64.b64decode(b64))
             try:
-                segments, _ = whisper.transcribe(str(tmp), beam_size=5)
-                text = " ".join(seg.text for seg in segments).strip()
+                loop = asyncio.get_running_loop()
+                result = await loop.run_in_executor(
+                    None, lambda: whisper_model.transcribe(str(tmp), beam_size=5)
+                )
+                text = result.get("text", "").strip()
+                
                 if text:
                     await push_message(chat_id, text, "voice", contact_name)
                     await wappi_send_text(chat_id, f"Распознано: {text[:100]}")
